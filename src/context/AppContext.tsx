@@ -17,7 +17,8 @@ import {
   SchoolClassName,
   PortalMode,
   StaffUser,
-  AuditLogEntry
+  AuditLogEntry,
+  AuthUser
 } from '../types';
 import { 
   INITIAL_FACULTIES, 
@@ -37,6 +38,12 @@ import {
 } from '../data/mockData';
 
 interface AppContextType {
+  // Global Authentication & Session
+  isAuthenticated: boolean;
+  currentUser: AuthUser | null;
+  loginUser: (loginName: string, passwordDigits: string, rolePreference?: 'student' | 'teacher') => { success: boolean; message: string };
+  logout: () => void;
+
   // Portal & Role
   portalMode: PortalMode;
   setPortalMode: (mode: PortalMode) => void;
@@ -135,19 +142,47 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Teacher Authentication state: by default false so students cannot enter
+  // Global Authentication Session (Login is required first)
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
+    const saved = localStorage.getItem('facultyscore_auth_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const isAuthenticated = currentUser !== null;
+
+  // Teacher Authentication state: true only if logged in as teacher
   const [isTeacherAuthenticated, setIsTeacherAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('facultyscore_teacher_auth') === 'true';
+    const savedUser = localStorage.getItem('facultyscore_auth_user');
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        return u.role === 'teacher';
+      } catch {
+        return false;
+      }
+    }
+    return false;
   });
 
   const [isTeacherAuthModalOpen, setIsTeacherAuthModalOpen] = useState<boolean>(false);
 
-  // Portal Mode: Default student. If teacher mode was previously set but auth is missing, reset to student.
+  // Portal Mode: reflects currentUser role
   const [portalMode, setPortalModeState] = useState<PortalMode>(() => {
-    const isAuth = localStorage.getItem('facultyscore_teacher_auth') === 'true';
-    const saved = localStorage.getItem('facultyscore_portal_mode');
-    if (saved === 'teacher' && isAuth) {
-      return 'teacher';
+    const savedUser = localStorage.getItem('facultyscore_auth_user');
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        return u.role === 'teacher' ? 'teacher' : 'student';
+      } catch {
+        return 'student';
+      }
     }
     return 'student';
   });
@@ -156,7 +191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (mode === 'teacher') {
       if (!isTeacherAuthenticated) {
         setIsTeacherAuthModalOpen(true);
-        showToast("O‘qituvchi paneliga kirish uchun xodim PIN-kodi talab qilinadi");
+        showToast("O‘qituvchi paneliga kirish uchun xodim ruxsati talab qilinadi");
         return;
       }
       setPortalModeState('teacher');
@@ -198,12 +233,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logoutTeacher = () => {
-    setIsTeacherAuthenticated(false);
-    localStorage.removeItem('facultyscore_teacher_auth');
-    setPortalModeState('student');
-    localStorage.setItem('facultyscore_portal_mode', 'student');
-    setCurrentSection('dashboard');
-    showToast("O‘qituvchi kabinetidan chiqildi. O‘quvchi rejimi faollashdi.");
+    logout();
   };
 
   // Navigation State
@@ -256,6 +286,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('facultyscore_students_list');
     return saved ? JSON.parse(saved) : MOCK_STUDENTS_LIST;
   });
+
+  const normalizeLogin = (text: string) => 
+    text.toLowerCase().trim().replace(/[‘'’`]/g, '').replace(/\s+/g, ' ');
+
+  const loginUser = (loginName: string, passwordDigits: string, rolePreference?: 'student' | 'teacher') => {
+    const cleanLogin = loginName.toLowerCase().trim();
+    const cleanPassword = passwordDigits.trim();
+
+    if (!cleanLogin) {
+      return { success: false, message: 'Iltimos, ism va familiyangizni kichik harflarda kiriting' };
+    }
+
+    if (!/^\d{8}$/.test(cleanPassword)) {
+      return { success: false, message: 'Parol aynan 8 xonali raqam bo‘lishi shart (masalan: 12345678)' };
+    }
+
+    // Check staff members
+    const staffMatch = MOCK_STAFF_USERS.find(s => normalizeLogin(s.name) === normalizeLogin(cleanLogin));
+    // Check student members
+    const studentMatch = studentsList.find(s => normalizeLogin(s.name) === normalizeLogin(cleanLogin)) 
+      || (normalizeLogin(CURRENT_STUDENT.name) === normalizeLogin(cleanLogin) ? CURRENT_STUDENT : undefined);
+
+    const targetRole = rolePreference || (staffMatch ? 'teacher' : 'student');
+
+    if (targetRole === 'teacher') {
+      if (staffMatch) {
+        const authUser: AuthUser = {
+          role: 'teacher',
+          name: staffMatch.name,
+          loginName: cleanLogin,
+          staffData: staffMatch
+        };
+        setCurrentUser(authUser);
+        localStorage.setItem('facultyscore_auth_user', JSON.stringify(authUser));
+        setCurrentStaffUser(staffMatch);
+        setIsTeacherAuthenticated(true);
+        localStorage.setItem('facultyscore_teacher_auth', 'true');
+        setPortalModeState('teacher');
+        localStorage.setItem('facultyscore_portal_mode', 'teacher');
+        setTeacherSection('teacher-dashboard');
+        showToast(`O‘qituvchi sifatida tizimga kirdingiz: ${staffMatch.name}`);
+        return { success: true, message: 'Muvaffaqiyatli' };
+      } else if (studentMatch) {
+        return { 
+          success: false, 
+          message: 'Kirish taqiqlangan! Siz o‘quvchi hisobiga egasiz. O‘quvchilar o‘qituvchi paneliga kira olmaydi. Iltimos, "O‘quvchi" bo‘limini tanlang.' 
+        };
+      } else {
+        return { 
+          success: false, 
+          message: 'Bunday o‘qituvchi topilmadi. Masalan: nodira torayeva yoki rustam qosimov' 
+        };
+      }
+    } else {
+      // Student login
+      if (staffMatch && !studentMatch) {
+        return {
+          success: false,
+          message: 'Siz o‘qituvchi hisobiga egasiz. Iltimos, "O‘qituvchi" bo‘limini tanlang.'
+        };
+      }
+
+      let activeStudent = studentMatch;
+      if (!activeStudent) {
+        const capitalized = cleanLogin
+          .split(' ')
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+        
+        activeStudent = {
+          id: 'std_usr_' + Date.now().toString(36),
+          name: capitalized,
+          email: `${cleanLogin.replace(/\s+/g, '.')}@sinoedu.uz`,
+          studentIdNumber: `SINO-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+          grade: 9,
+          className: '9-Blue',
+          facultyId: 'Blue',
+          avatar: capitalized.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'ST',
+          personalContributionPoints: 25,
+          verifiedAchievementsCount: 1,
+          quizParticipationsCount: 2,
+          joinedClubsCount: 1,
+          attendanceRate: 98.5
+        };
+        setStudentsList(prev => [activeStudent!, ...prev]);
+      }
+
+      const authUser: AuthUser = {
+        role: 'student',
+        name: activeStudent.name,
+        loginName: cleanLogin,
+        studentData: activeStudent
+      };
+
+      setCurrentUser(authUser);
+      localStorage.setItem('facultyscore_auth_user', JSON.stringify(authUser));
+      setCurrentStudent(activeStudent);
+      setIsTeacherAuthenticated(false);
+      localStorage.removeItem('facultyscore_teacher_auth');
+      setPortalModeState('student');
+      localStorage.setItem('facultyscore_portal_mode', 'student');
+      setCurrentSection('dashboard');
+      showToast(`Xush kelibsiz, ${activeStudent.name}!`);
+      return { success: true, message: 'Muvaffaqiyatli' };
+    }
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('facultyscore_auth_user');
+    setIsTeacherAuthenticated(false);
+    localStorage.removeItem('facultyscore_teacher_auth');
+    setPortalModeState('student');
+    localStorage.setItem('facultyscore_portal_mode', 'student');
+    setCurrentSection('dashboard');
+    showToast("Tizimdan muvaffaqiyatli chiqildi");
+  };
 
   const [pointRecords, setPointRecords] = useState<PointRecord[]>(() => {
     const saved = localStorage.getItem('facultyscore_records');
@@ -740,6 +887,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
+        isAuthenticated,
+        currentUser,
+        loginUser,
+        logout,
         portalMode,
         setPortalMode,
         currentStaffUser,

@@ -190,6 +190,14 @@ export type PortalMode = 'student' | 'teacher';
 
 export type StaffRole = 'admin' | 'teacher' | 'moderator';
 
+export interface AuthUser {
+  role: 'student' | 'teacher';
+  name: string;
+  loginName: string;
+  studentData?: Student;
+  staffData?: StaffUser;
+}
+
 export interface StaffUser {
   id: string;
   name: string;

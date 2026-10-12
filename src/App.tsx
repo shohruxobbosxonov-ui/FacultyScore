@@ -30,11 +30,13 @@ import { TeacherStudentsView } from './views/teacher/TeacherStudentsView';
 import { TeacherAIToolsView } from './views/teacher/TeacherAIToolsView';
 import { TeacherAuthModal } from './components/auth/TeacherAuthModal';
 import { TeacherAccessDenied } from './components/auth/TeacherAccessDenied';
+import { LoginView } from './views/LoginView';
 
 import { CheckCircle2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { 
+    isAuthenticated,
     portalMode, 
     setPortalMode,
     isTeacherAuthenticated,
@@ -44,6 +46,11 @@ const AppContent: React.FC = () => {
     isSidebarCollapsed, 
     toastMessage 
   } = useApp();
+
+  // If not logged in, render the Login Screen first
+  if (!isAuthenticated) {
+    return <LoginView />;
+  }
 
   const isTeacher = portalMode === 'teacher' && isTeacherAuthenticated;
   const isUnauthorizedTeacherAttempt = portalMode === 'teacher' && !isTeacherAuthenticated;

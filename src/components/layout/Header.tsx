@@ -45,11 +45,12 @@ const TEACHER_SECTION_TITLES: Record<TeacherNavigationSection, { title: string; 
 
 export const Header: React.FC = () => {
   const { 
+    currentUser,
+    logout,
     portalMode,
     setPortalMode,
     isTeacherAuthenticated,
     setIsTeacherAuthModalOpen,
-    logoutTeacher,
     currentSection, 
     teacherSection, 
     isDarkMode, 
@@ -62,6 +63,7 @@ export const Header: React.FC = () => {
   } = useApp();
 
   const isTeacher = portalMode === 'teacher' && isTeacherAuthenticated;
+  const userRole = currentUser?.role || (isTeacher ? 'teacher' : 'student');
   const studentFaculty = faculties.find(f => f.id === currentStudent.facultyId);
   const currentMeta = isTeacher
     ? (TEACHER_SECTION_TITLES[teacherSection] || { title: 'O‘qituvchi boshqaruvi', subtitle: '' })
@@ -91,66 +93,41 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Actions, Portal Mode Security Gate & User Status */}
+        {/* Right: Actions, Portal Mode Badge as shown in screenshot & User Status */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           
-          {/* TEACHER ACCESS GATE / AUTHENTICATED SWITCHER */}
-          {!isTeacherAuthenticated ? (
-            /* Student View: Student is in Student Panel. Teacher panel is locked behind PIN */
-            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl text-xs font-semibold border border-slate-200/60 dark:border-slate-700/60">
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 shadow-xs font-bold">
-                <GraduationCap size={13} />
+          {/* USER ROLE INDICATOR (O'quvchi yoki O'qituvchi) */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl text-xs font-semibold border border-slate-200/60 dark:border-slate-700/60">
+            {userRole === 'student' ? (
+              /* Student Role Badge */
+              <div 
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 shadow-xs font-bold"
+                title="Siz o‘quvchi hisobi bilan kirgansiz"
+              >
+                <GraduationCap size={14} className="text-blue-600 dark:text-blue-400" />
                 <span>O‘quvchi</span>
-              </span>
+              </div>
+            ) : (
+              /* Teacher Role Badge */
+              <div 
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900 text-white dark:bg-blue-600 shadow-xs font-bold"
+                title="Siz o‘qituvchi / hakam hisobi bilan kirgansiz"
+              >
+                <ShieldCheck size={14} className="text-emerald-400" />
+                <span>O‘qituvchi</span>
+              </div>
+            )}
 
-              <button
-                onClick={() => setIsTeacherAuthModalOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
-                title="O‘qituvchi kabinetiga kirish (O‘quvchilar uchun yopiq, PIN-kod talab qilinadi)"
-              >
-                <Lock size={12} className="text-amber-500" />
-                <span className="hidden sm:inline">O‘qituvchi kirishi</span>
-              </button>
-            </div>
-          ) : (
-            /* Teacher View: Verified staff is authenticated with option to log out or preview student view */
-            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold border border-slate-200/60 dark:border-slate-700/60">
-              <button
-                onClick={() => setPortalMode('student')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all ${
-                  !isTeacher 
-                    ? 'bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 shadow-xs' 
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-                title="O‘quvchi ko‘rinishini ko‘rish"
-              >
-                <GraduationCap size={13} />
-                <span className="hidden sm:inline">O‘quvchi</span>
-              </button>
-
-              <button
-                onClick={() => setPortalMode('teacher')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all ${
-                  isTeacher 
-                    ? 'bg-slate-900 text-white dark:bg-blue-600 dark:text-white shadow-xs' 
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-                title="O‘qituvchi boshqaruv paneli"
-              >
-                <ShieldCheck size={13} className="text-emerald-400" />
-                <span className="hidden sm:inline">O‘qituvchi</span>
-              </button>
-
-              <button
-                onClick={logoutTeacher}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors ml-0.5"
-                title="O‘qituvchi sessiyasini yopish va chiqish"
-              >
-                <LogOut size={12} />
-                <span className="hidden md:inline text-[11px]">Chiqish</span>
-              </button>
-            </div>
-          )}
+            {/* Logout button to return to login screen */}
+            <button
+              onClick={logout}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors font-medium text-xs"
+              title="Tizimdan chiqish (Kirish oynasiga qaytish)"
+            >
+              <LogOut size={12} />
+              <span className="hidden sm:inline">Chiqish</span>
+            </button>
+          </div>
 
           {/* Quick Search trigger */}
           <button

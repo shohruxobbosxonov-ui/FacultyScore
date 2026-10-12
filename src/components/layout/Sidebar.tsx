@@ -14,7 +14,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   GraduationCap,
-  Lock
+  Lock,
+  LogOut
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { NavigationSection } from '../../types';
@@ -37,7 +38,8 @@ export const Sidebar: React.FC = () => {
     currentStudent,
     announcements,
     quizzes,
-    setIsTeacherAuthModalOpen
+    setIsTeacherAuthModalOpen,
+    logout
   } = useApp();
 
   const activeQuizzesCount = quizzes.filter(q => !q.isCompleted).length;
@@ -205,20 +207,20 @@ export const Sidebar: React.FC = () => {
             )}
           </button>
 
-          {/* Teacher Login Gate button */}
+          {/* Logout button to return to login screen */}
           <button
             onClick={() => {
-              setIsTeacherAuthModalOpen(true);
+              logout();
               setIsMobileMenuOpen(false);
             }}
-            title={isSidebarCollapsed ? "O‘qituvchi kirishi" : undefined}
-            className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${
+            title={isSidebarCollapsed ? "Tizimdan chiqish" : undefined}
+            className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-medium text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${
               isSidebarCollapsed ? 'justify-center px-0' : ''
             }`}
           >
-            <Lock size={13} className="text-amber-500 shrink-0" />
+            <LogOut size={13} className="shrink-0" />
             {!isSidebarCollapsed && (
-              <span className="truncate">O‘qituvchi kirishi (Xodimlar)</span>
+              <span className="truncate">Tizimdan chiqish</span>
             )}
           </button>
         </div>
