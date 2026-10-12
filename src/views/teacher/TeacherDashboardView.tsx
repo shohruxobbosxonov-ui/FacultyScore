@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Trophy, 
   TrendingUp, 
@@ -13,7 +13,9 @@ import {
   PlusCircle, 
   ArrowRight,
   FileText,
-  Users
+  Users,
+  Database,
+  Server
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ALL_SCHOOL_CLASSES } from '../../data/mockData';
@@ -34,6 +36,27 @@ export const TeacherDashboardView: React.FC = () => {
   const pendingAchievements = achievements.filter(a => a.status === 'kutilmoqda');
   const pendingSuggestions = suggestions.filter(s => s.status === 'korib_chiqilmoqda');
   const recentRecords = pointRecords.slice(0, 5);
+
+  const [tursoStatus, setTursoStatus] = useState<{
+    connected: boolean;
+    url: string;
+    hasToken: boolean;
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/turso/status')
+      .then(res => res.json())
+      .then(data => setTursoStatus(data))
+      .catch(() => {
+        setTursoStatus({
+          connected: false,
+          url: 'libsql://facultyscore-coach.aws-ap-northeast-1.turso.io',
+          hasToken: false,
+          message: 'Turso Cloud DB integratsiyasi tayyorlangan'
+        });
+      });
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -56,16 +79,31 @@ export const TeacherDashboardView: React.FC = () => {
           </p>
         </div>
 
-        {/* Data Integrity Status */}
-        <div className="p-3.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 flex items-start gap-2.5 max-w-md">
-          <ShieldCheck size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-          <div className="text-xs">
-            <span className="font-bold text-emerald-900 dark:text-emerald-200 block">
-              Ma’lumotlar yaxlitligi tekshirildi (OK)
-            </span>
-            <span className="text-emerald-700 dark:text-emerald-300/90 text-[11px] leading-tight block">
-              Maktabning 14 ta sinfi (7–10) to‘liq muvofiqlashtirilgan. Barcha ballar tranzaksiyalar reyestri bilan muvozanatda.
-            </span>
+        {/* Status Badges: Data Integrity & Turso DB */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div className="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 flex items-start gap-2.5">
+            <ShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <span className="font-bold text-emerald-900 dark:text-emerald-200 block">
+                Ma’lumotlar yaxlitligi tekshirildi
+              </span>
+              <span className="text-emerald-700 dark:text-emerald-300/90 text-[11px] block">
+                14 ta sinf (7–10) to‘liq muvofiqlashtirilgan
+              </span>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 flex items-start gap-2.5">
+            <Database size={16} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-blue-900 dark:text-blue-200">
+                <span>Turso Cloud DB</span>
+                <span className={`w-2 h-2 rounded-full ${tursoStatus?.connected ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+              </div>
+              <span className="text-blue-700 dark:text-blue-300/90 text-[11px] font-mono block truncate max-w-[200px]" title={tursoStatus?.url}>
+                {tursoStatus?.connected ? 'Ulangan (Online)' : 'libsql://facultyscore-coach...'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
